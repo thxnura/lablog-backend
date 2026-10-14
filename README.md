@@ -32,6 +32,8 @@ token (`requireAuth`) and scopes writes to the authenticated student.
 ## Setup
 
 1. Create a Supabase project. In the SQL editor run `db/schema.sql` then `db/seed.sql`.
+   A database created before the step guides were added also needs
+   `db/migrations/002_step_guides.sql` (run it before re-running the seed).
 2. Create a private Storage bucket named `evidence` (Storage → New bucket).
 3. `cp .env.example .env` and fill in the URL + keys (Settings → API).
 4. `npm install`

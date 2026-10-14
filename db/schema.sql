@@ -26,7 +26,11 @@ create table if not exists steps (
   requires_photo        boolean not null default false,
   min_duration_seconds  int,
   -- precedence edges: steps that must be complete before this one unlocks
-  prerequisite_step_ids uuid[] not null default '{}'
+  prerequisite_step_ids uuid[] not null default '{}',
+  -- step guide shown in the app: how-to sub-steps, safety note, expected result
+  guide_steps           text[] not null default '{}',
+  safety_note           text,
+  expected_result       text
 );
 
 -- ── Records (synced from the app) ───────────────────────────────────────────

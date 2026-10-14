@@ -16,6 +16,9 @@ interface StepRow {
   requires_photo: boolean;
   min_duration_seconds: number | null;
   prerequisite_step_ids: string[] | null;
+  guide_steps: string[] | null;
+  safety_note: string | null;
+  expected_result: string | null;
 }
 
 const toLab = (r: LabRow) => ({ id: r.id, name: r.name, code: r.code });
@@ -36,7 +39,15 @@ const toStep = (r: StepRow) => ({
   requiresPhoto: r.requires_photo,
   minDurationSeconds: r.min_duration_seconds,
   prerequisiteStepIds: r.prerequisite_step_ids ?? [],
+  guide: toGuide(r),
 });
+
+/** The step guide, or null when the step has no guide content. */
+const toGuide = (r: StepRow) => {
+  const steps = r.guide_steps ?? [];
+  if (!steps.length && !r.safety_note && !r.expected_result) return null;
+  return { steps, safety: r.safety_note, expected: r.expected_result };
+};
 
 export const catalogService = {
   async listLabs() {

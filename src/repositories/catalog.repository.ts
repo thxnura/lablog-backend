@@ -26,7 +26,7 @@ export const catalogRepository = {
     const { data, error } = await supabaseAdmin
       .from('experiments')
       .select(
-        'id, lab_id, title, description, steps(id, experiment_id, "order", title, instruction, requires_photo, min_duration_seconds, prerequisite_step_ids)',
+        'id, lab_id, title, description, steps(id, experiment_id, "order", title, instruction, requires_photo, min_duration_seconds, prerequisite_step_ids, guide_steps, safety_note, expected_result)',
       )
       .eq('id', experimentId)
       .single();
