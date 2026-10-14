@@ -8,6 +8,9 @@ export interface SyncItemResult {
   error?: string;
 }
 
+/** Postgres returns e.g. "2026-10-14 15:43:52.123456+00"; the API contract is ISO 8601 UTC. */
+const iso = (value: string | null) => (value ? new Date(value).toISOString() : null);
+
 export const syncService = {
   /**
    * Upserts each record (idempotent by client UUID) and reports per-item
@@ -49,12 +52,12 @@ export const syncService = {
         status: r.status,
         latitude: r.latitude,
         longitude: r.longitude,
-        createdAt: r.created_at,
-        submittedAt: r.submitted_at,
+        createdAt: iso(r.created_at),
+        submittedAt: iso(r.submitted_at),
         stepCompletions: r.step_completions.map((c) => ({
           id: c.id,
           stepId: c.step_id,
-          completedAt: c.completed_at,
+          completedAt: iso(c.completed_at),
           note: c.note,
         })),
         observations: r.observations.map((o) => ({ id: o.id, text: o.text })),
