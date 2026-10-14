@@ -11,3 +11,11 @@ export function validateBody<T>(schema: ZodSchema<T>) {
     next();
   };
 }
+
+/** Same for the query string; the parsed result is stored on `res.locals.query`. */
+export function validateQuery<T>(schema: ZodSchema<T>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    res.locals.query = schema.parse(req.query);
+    next();
+  };
+}

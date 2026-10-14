@@ -2,6 +2,7 @@ import type { NextFunction, Response } from 'express';
 import type { AuthedRequest } from '../middleware/auth.js';
 import { syncService } from '../services/sync.service.js';
 import { HttpError } from '../middleware/errorHandler.js';
+import type { RecordsQuery } from '../dto/sync.dto.js';
 
 export const syncController = {
   async sync(req: AuthedRequest, res: Response, next: NextFunction) {
@@ -14,10 +15,9 @@ export const syncController = {
     }
   },
 
-  async listRecords(req: AuthedRequest, res: Response, next: NextFunction) {
+  async listRecords(_req: AuthedRequest, res: Response, next: NextFunction) {
     try {
-      const experimentId = req.query.experimentId as string | undefined;
-      if (!experimentId) throw new HttpError(400, 'experimentId is required');
+      const { experimentId } = res.locals.query as RecordsQuery;
       res.json(await syncService.listByExperiment(experimentId));
     } catch (err) {
       next(err);

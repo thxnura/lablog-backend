@@ -26,7 +26,7 @@ token (`requireAuth`) and scopes writes to the authenticated student.
 | GET | `/api/labs/:labId/experiments` | ✓ | experiments in a lab |
 | GET | `/api/experiments/:id` | ✓ | experiment + steps (cached offline) |
 | POST | `/api/sync` | ✓ | idempotent batch upsert of local records |
-| GET | `/api/records?experimentId=` | ✓ | lecturer view of submitted records |
+| GET | `/api/records?experimentId=` | lecturer | submitted records + student email + signed photo URLs |
 | POST | `/api/attachments/sign` | ✓ | signed Storage upload URL for a photo |
 
 ## Setup
@@ -39,12 +39,40 @@ token (`requireAuth`) and scopes writes to the authenticated student.
 4. `npm install`
 5. `npm run dev` → http://localhost:3000/api/health
 
+## Local stack (no hosted project needed)
+
+Requires Docker and the Supabase CLI.
+
+```sh
+supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+npm run local:setup                         # .env + demo users (simulator: 127.0.0.1)
+npm run local:setup -- --host 192.168.1.8   # same, reachable from an iPhone on the LAN
+npm run dev                                 # API on :3100 (3000 clashes with other dev servers)
+npm run test:e2e                            # 10 HTTP tests against the real stack
+```
+
+`supabase/` applies `db/schema.sql` as its migration and `db/seed.sql` as the seed, so
+`db/` stays the source of truth. The setup script prints the iOS `Config/Secrets.xcconfig`.
+
+Demo accounts (local only): `student@lablog.test` / `LabLog-Student-1`,
+`student2@lablog.test` / `LabLog-Student-2`, `lecturer@lablog.test` / `LabLog-Lecturer-1`.
+The role lives in `app_metadata.role`, which only the service role can set.
+
+## Security rules
+
+- Every route except `/api/health` needs a Supabase JWT (`requireAuth`).
+- `/api/records` is lecturer-only (`requireRole('lecturer')`).
+- Sync refuses a record id owned by another student (403) and child ids that belong to
+  another record (409), so client-generated UUIDs can't be used to hijack data.
+
 ## Scripts
 
 - `npm run dev` — watch mode (tsx)
 - `npm run build` — compile to `dist/`
 - `npm start` — run compiled server
 - `npm run typecheck` — types only
+- `npm run local:setup` — local `.env` + demo users (see above)
+- `npm run test:e2e` — end-to-end tests against the local stack
 
 ## Sync contract
 

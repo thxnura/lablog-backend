@@ -43,3 +43,10 @@ export const syncRequestSchema = z.object({
 
 export type SyncRecord = z.infer<typeof syncRecordSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
+
+/** `GET /api/records?experimentId=` (lecturer view). */
+export const recordsQuerySchema = z.object({
+  experimentId: z.string().uuid(),
+});
+
+export type RecordsQuery = z.infer<typeof recordsQuerySchema>;

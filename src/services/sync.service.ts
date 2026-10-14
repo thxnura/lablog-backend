@@ -1,4 +1,5 @@
 import { recordRepository } from '../repositories/record.repository.js';
+import { attachmentService } from './attachment.service.js';
 import type { SyncRequest } from '../dto/sync.dto.js';
 
 export interface SyncItemResult {
@@ -17,6 +18,7 @@ export const syncService = {
     const results: SyncItemResult[] = [];
     for (const record of body.records) {
       try {
+        await recordRepository.assertOwnership(studentId, record);
         await recordRepository.upsertRecord(studentId, record);
         await recordRepository.upsertChildren(record);
         results.push({ id: record.id, status: 'synced' });
@@ -31,6 +33,40 @@ export const syncService = {
     return results;
   },
 
-  listByExperiment: (experimentId: string) =>
-    recordRepository.listByExperiment(experimentId),
+  /**
+   * Lecturer view: camelCase records with the student's email and a
+   * time-limited (1 h) signed URL for each photo in the private bucket.
+   */
+  async listByExperiment(experimentId: string) {
+    const rows = await recordRepository.listByExperiment(experimentId);
+    const emails = await recordRepository.studentEmails(rows.map((r) => r.student_id));
+    return Promise.all(
+      rows.map(async (r) => ({
+        id: r.id,
+        studentId: r.student_id,
+        studentEmail: emails.get(r.student_id) ?? null,
+        experimentId: r.experiment_id,
+        status: r.status,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        createdAt: r.created_at,
+        submittedAt: r.submitted_at,
+        stepCompletions: r.step_completions.map((c) => ({
+          id: c.id,
+          stepId: c.step_id,
+          completedAt: c.completed_at,
+          note: c.note,
+        })),
+        observations: r.observations.map((o) => ({ id: o.id, text: o.text })),
+        attachments: await Promise.all(
+          r.attachments.map(async (a) => ({
+            id: a.id,
+            stepId: a.step_id,
+            storagePath: a.storage_path,
+            url: await attachmentService.getDownloadUrl(a.storage_path),
+          })),
+        ),
+      })),
+    );
+  },
 };
