@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import type { SyncRecord } from '../dto/sync.dto.js';
+import { attachmentRepository } from './attachment.repository.js';
 
 /** Rows as they come back from the lecturer query. */
 export interface RecordRow {
@@ -104,6 +105,45 @@ export const recordRepository = {
       );
       if (error) throw new HttpError(500, error.message);
     }
+
+    // The payload carries the record's full set of photos, so any photo that
+    // isn't in it was retaken or removed on the device: drop its row and file.
+    await this.pruneAttachments(r.id, r.attachments.map((a) => a.id));
+  },
+
+  async pruneAttachments(recordId: string, keepIds: string[]) {
+    const { data, error } = await supabaseAdmin
+      .from('attachments')
+      .select('id, storage_path')
+      .eq('record_id', recordId);
+    if (error) throw new HttpError(500, error.message);
+    const stale = (data ?? []).filter((a) => !keepIds.includes(a.id));
+    if (!stale.length) return;
+    await attachmentRepository.removeObjects(stale.map((a) => a.storage_path));
+    const { error: deleteError } = await supabaseAdmin
+      .from('attachments')
+      .delete()
+      .in('id', stale.map((a) => a.id));
+    if (deleteError) throw new HttpError(500, deleteError.message);
+  },
+
+  /**
+   * A discarded draft: delete it with its children (FK cascade) and its photos.
+   * Already gone is fine (a retried tombstone); a submitted record is evidence
+   * and is never deleted.
+   */
+  async deleteDraft(recordId: string) {
+    const { data: existing, error } = await supabaseAdmin
+      .from('lab_records')
+      .select('status')
+      .eq('id', recordId)
+      .maybeSingle();
+    if (error) throw new HttpError(500, error.message);
+    if (!existing) return;
+    if (existing.status !== 'draft') throw new HttpError(409, 'Submitted records cannot be deleted');
+    await this.pruneAttachments(recordId, []);
+    const { error: deleteError } = await supabaseAdmin.from('lab_records').delete().eq('id', recordId);
+    if (deleteError) throw new HttpError(500, deleteError.message);
   },
 
   /** Lecturer view: submitted records for an experiment, newest first. */

@@ -16,6 +16,13 @@ export const attachmentRepository = {
     return data; // { signedUrl, token, path }
   },
 
+  /** Deletes photos from the bucket (missing objects are ignored). */
+  async removeObjects(paths: string[]) {
+    if (!paths.length) return;
+    const { error } = await supabaseAdmin.storage.from(env.storageBucket).remove(paths);
+    if (error) throw new HttpError(500, error.message);
+  },
+
   /** Signed download URL so the lecturer view can display evidence. */
   async createSignedDownloadUrl(path: string, expiresIn = 3600) {
     const { data, error } = await supabaseAdmin.storage

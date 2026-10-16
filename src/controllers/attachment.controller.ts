@@ -5,7 +5,7 @@ import { attachmentService } from '../services/attachment.service.js';
 export const attachmentController = {
   async signUpload(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
-      res.json(await attachmentService.signUpload(req.body));
+      res.json(await attachmentService.signUpload(req.body, req.hostname));
     } catch (err) {
       next(err);
     }

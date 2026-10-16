@@ -193,6 +193,96 @@ describe('photo evidence', () => {
   });
 });
 
+describe('changing networks', () => {
+  test('signed URLs point at the host the app called, not the .env address', async () => {
+    const recordId = randomUUID();
+    createdRecords.push(recordId);
+    // Same API, reached as "localhost" instead of 127.0.0.1 (like a phone using a new address).
+    const port = (server.address() as AddressInfo).port;
+    const res = await fetch(`http://localhost:${port}/api/attachments/sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokens[STUDENT]}` },
+      body: JSON.stringify({ recordId, attachmentId: randomUUID() }),
+    });
+    const signed = (await res.json()) as { signedUrl: string };
+    assert.equal(new URL(signed.signedUrl).hostname, 'localhost');
+    assert.equal(new URL(signed.signedUrl).port, new URL(env.supabaseUrl).port);
+  });
+});
+
+async function uploadPhoto(recordId: string) {
+  const attachmentId = randomUUID();
+  const signed = await api('/attachments/sign', {
+    method: 'POST', token: tokens[STUDENT], body: { recordId, attachmentId },
+  });
+  const put = await fetch(signed.body.signedUrl, {
+    method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: new Uint8Array([0xff, 0xd8, 7, 0xff, 0xd9]),
+  });
+  assert.ok(put.ok);
+  createdObjects.push(signed.body.storagePath);
+  return { id: attachmentId, stepId: STEP_2, storagePath: signed.body.storagePath as string };
+}
+
+async function objectExists(path: string) {
+  const folder = path.split('/').slice(0, -1).join('/');
+  const { data } = await supabaseAdmin.storage.from(env.storageBucket).list(folder);
+  return (data ?? []).some((o) => `${folder}/${o.name}` === path);
+}
+
+describe('editing drafts', () => {
+  test('a retaken photo replaces the old one on the server', async () => {
+    const record = makeRecord({ status: 'draft', submittedAt: null });
+    const first = await uploadPhoto(record.id);
+    record.attachments = [first];
+    await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [record] } });
+
+    const retake = await uploadPhoto(record.id);
+    record.attachments = [retake];
+    const res = await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [record] } });
+    assert.equal(res.body.results[0].status, 'synced');
+
+    const rows = await supabaseAdmin.from('attachments').select('id').eq('record_id', record.id);
+    assert.deepEqual(rows.data?.map((r) => r.id), [retake.id]);
+    assert.equal(await objectExists(first.storagePath), false, 'old photo file removed');
+    assert.equal(await objectExists(retake.storagePath), true);
+  });
+
+  test('a discarded draft is deleted with its photos; retrying the tombstone is fine', async () => {
+    const record = makeRecord({ status: 'draft', submittedAt: null });
+    const photo = await uploadPhoto(record.id);
+    record.attachments = [photo];
+    await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [record] } });
+
+    const tombstone = { ...record, deleted: true, stepCompletions: [], observations: [], attachments: [] };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [tombstone] } });
+      assert.equal(res.body.results[0].status, 'synced', `tombstone attempt ${attempt + 1}`);
+    }
+    const rows = await supabaseAdmin.from('lab_records').select('id').eq('id', record.id);
+    assert.equal(rows.data?.length, 0);
+    assert.equal(await objectExists(photo.storagePath), false);
+  });
+
+  test('submitted records cannot be deleted, and nobody can delete another student’s draft', async () => {
+    const submitted = makeRecord();
+    await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [submitted] } });
+    const res = await api('/sync', {
+      method: 'POST', token: tokens[STUDENT], body: { records: [{ ...submitted, deleted: true }] },
+    });
+    assert.equal(res.body.results[0].status, 'failed');
+    assert.match(res.body.results[0].error, /cannot be deleted/);
+
+    const draft = makeRecord({ status: 'draft', submittedAt: null });
+    await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [draft] } });
+    const other = await api('/sync', {
+      method: 'POST', token: tokens[STUDENT_2], body: { records: [{ ...draft, deleted: true }] },
+    });
+    assert.equal(other.body.results[0].status, 'failed');
+    const still = await supabaseAdmin.from('lab_records').select('id').eq('id', draft.id);
+    assert.equal(still.data?.length, 1);
+  });
+});
+
 describe('lecturer view', () => {
   test('students get 403; lecturers get records with emails and working photo URLs', async () => {
     const record = makeRecord();

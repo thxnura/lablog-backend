@@ -15,10 +15,10 @@ export const syncController = {
     }
   },
 
-  async listRecords(_req: AuthedRequest, res: Response, next: NextFunction) {
+  async listRecords(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
       const { experimentId } = res.locals.query as RecordsQuery;
-      res.json(await syncService.listByExperiment(experimentId));
+      res.json(await syncService.listByExperiment(experimentId, req.hostname));
     } catch (err) {
       next(err);
     }

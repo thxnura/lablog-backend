@@ -35,6 +35,8 @@ export const syncRecordSchema = z.object({
   stepCompletions: z.array(stepCompletionSchema).default([]),
   observations: z.array(observationSchema).default([]),
   attachments: z.array(attachmentSchema).default([]),
+  /** Tombstone: the student discarded this draft on the device. */
+  deleted: z.boolean().optional(),
 });
 
 export const syncRequestSchema = z.object({

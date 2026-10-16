@@ -37,9 +37,11 @@ async function main() {
     process.exit(1);
   }
 
-  // Signed upload URLs are built from SUPABASE_URL, so it must be reachable
-  // from the device that uploads (the phone can't reach 127.0.0.1 on the Mac).
-  const supabaseUrl = apiUrl.replace('127.0.0.1', host);
+  // The API talks to Supabase over loopback. Storage URLs it hands to the app
+  // are rewritten to whatever host the app called (src/services/client-url.ts),
+  // so a new Wi-Fi or hotspot address needs no change here.
+  const supabaseUrl = apiUrl;
+  const appSupabaseUrl = apiUrl.replace('127.0.0.1', host);
 
   writeFileSync(
     '.env',
@@ -61,7 +63,7 @@ async function main() {
   for (const u of DEMO_USERS) console.log(`  ${u.role.padEnd(8)} ${u.email} / ${u.password}`);
   console.log('\nlablog-ios/Config/Secrets.xcconfig:\n');
   console.log(`LABLOG_API_BASE_URL = ${xc(`http://${host}:${port}/api`)}`);
-  console.log(`SUPABASE_URL = ${xc(supabaseUrl)}`);
+  console.log(`SUPABASE_URL = ${xc(appSupabaseUrl)}`);
   console.log(`SUPABASE_ANON_KEY = ${anonKey}`);
 }
 
