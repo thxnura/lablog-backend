@@ -1,4 +1,4 @@
-import { recordRepository } from '../repositories/record.repository.js';
+import { recordRepository, type RecordRow } from '../repositories/record.repository.js';
 import { attachmentService } from './attachment.service.js';
 import type { SyncRequest } from '../dto/sync.dto.js';
 
@@ -48,33 +48,41 @@ export const syncService = {
   async listByExperiment(experimentId: string, requestHost?: string) {
     const rows = await recordRepository.listByExperiment(experimentId);
     const emails = await recordRepository.studentEmails(rows.map((r) => r.student_id));
-    return Promise.all(
-      rows.map(async (r) => ({
-        id: r.id,
-        studentId: r.student_id,
-        studentEmail: emails.get(r.student_id) ?? null,
-        experimentId: r.experiment_id,
-        status: r.status,
-        latitude: r.latitude,
-        longitude: r.longitude,
-        createdAt: iso(r.created_at),
-        submittedAt: iso(r.submitted_at),
-        stepCompletions: r.step_completions.map((c) => ({
-          id: c.id,
-          stepId: c.step_id,
-          completedAt: iso(c.completed_at),
-          note: c.note,
-        })),
-        observations: r.observations.map((o) => ({ id: o.id, text: o.text })),
-        attachments: await Promise.all(
-          r.attachments.map(async (a) => ({
-            id: a.id,
-            stepId: a.step_id,
-            storagePath: a.storage_path,
-            url: await attachmentService.getDownloadUrl(a.storage_path, requestHost),
-          })),
-        ),
-      })),
-    );
+    return Promise.all(rows.map((r) => toClient(r, emails.get(r.student_id) ?? null, requestHost)));
+  },
+
+  /** The signed-in student's own records, in the same shape, to restore a phone. */
+  async listMine(studentId: string, requestHost?: string) {
+    const rows = await recordRepository.listByStudent(studentId);
+    return Promise.all(rows.map((r) => toClient(r, null, requestHost)));
   },
 };
+
+async function toClient(r: RecordRow, studentEmail: string | null, requestHost?: string) {
+  return {
+    id: r.id,
+    studentId: r.student_id,
+    studentEmail,
+    experimentId: r.experiment_id,
+    status: r.status,
+    latitude: r.latitude,
+    longitude: r.longitude,
+    createdAt: iso(r.created_at),
+    submittedAt: iso(r.submitted_at),
+    stepCompletions: r.step_completions.map((c) => ({
+      id: c.id,
+      stepId: c.step_id,
+      completedAt: iso(c.completed_at),
+      note: c.note,
+    })),
+    observations: r.observations.map((o) => ({ id: o.id, text: o.text })),
+    attachments: await Promise.all(
+      r.attachments.map(async (a) => ({
+        id: a.id,
+        stepId: a.step_id,
+        storagePath: a.storage_path,
+        url: await attachmentService.getDownloadUrl(a.storage_path, requestHost),
+      })),
+    ),
+  };
+}

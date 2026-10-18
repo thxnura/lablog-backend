@@ -53,6 +53,7 @@ role can set.
 | GET | `/api/experiments/:id` | signed in | An experiment with its steps and guides |
 | POST | `/api/attachments/sign` | signed in | Signed Storage upload URL for a photo (deterministic path; retries overwrite) |
 | POST | `/api/sync` | signed in | Batch upsert of records (≤ 100) with a result per record. `deleted: true` deletes a draft (tombstone); photos missing from a record's set are removed |
+| GET | `/api/records/mine` | signed in | The student's own records (drafts and submitted) with signed photo URLs, so the app can restore a phone after sign-in |
 | GET | `/api/records?experimentId=` | lecturer | Submitted records with student email and 1-hour signed photo URLs |
 
 ## Running it locally
@@ -100,7 +101,7 @@ set the new address in the app under Sync → Server.
 npm run test:e2e
 ```
 
-15 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
+16 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
 Storage), the same way the app does:
 - auth: 401 without a token;
 - the catalog and step guides;
@@ -110,6 +111,7 @@ Storage), the same way the app does:
 - storage URLs following the caller's host;
 - a retake replacing the stored photo;
 - ids in the app's upper-case form keeping their photo;
+- a student getting their own records back (and nobody else's);
 - draft tombstones: idempotent, drafts only, owner only;
 - lecturer access: 403 for students, 200 for lecturers, with working photo URLs.
 

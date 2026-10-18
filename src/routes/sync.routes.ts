@@ -8,6 +8,8 @@ export const syncRoutes = Router();
 
 syncRoutes.use(requireAuth);
 syncRoutes.post('/sync', validateBody(syncRequestSchema), syncController.sync);
+// The student's own records (drafts and submitted), to restore a phone after sign-in.
+syncRoutes.get('/records/mine', syncController.listMine);
 // Lecturer view: submitted records for one experiment, with signed photo URLs.
 syncRoutes.get(
   '/records',

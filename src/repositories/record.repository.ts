@@ -160,6 +160,22 @@ export const recordRepository = {
     return (data ?? []) as RecordRow[];
   },
 
+  /**
+   * A student's own records, drafts and submitted, newest first: the app
+   * restores them after signing in on a new or cleared phone.
+   */
+  async listByStudent(studentId: string): Promise<RecordRow[]> {
+    const { data, error } = await supabaseAdmin
+      .from('lab_records')
+      .select(
+        'id, student_id, experiment_id, status, latitude, longitude, created_at, submitted_at, step_completions(id, step_id, completed_at, note), observations(id, text), attachments(id, step_id, storage_path)',
+      )
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+    if (error) throw new HttpError(500, error.message);
+    return (data ?? []) as RecordRow[];
+  },
+
   /** Student emails for the lecturer view (auth.users is not in the public schema). */
   async studentEmails(studentIds: string[]): Promise<Map<string, string>> {
     const emails = new Map<string, string>();

@@ -296,6 +296,31 @@ describe('editing drafts', () => {
   });
 });
 
+describe('restoring a phone', () => {
+  test('a student gets their own records back, with photo links; nobody else does', async () => {
+    const record = makeRecord({ status: 'draft', submittedAt: null });
+    const photo = await uploadPhoto(record.id);
+    record.attachments = [photo];
+    await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [record] } });
+
+    const mine = await api('/records/mine', { token: tokens[STUDENT] });
+    assert.equal(mine.status, 200);
+    const restored = mine.body.find((r: { id: string }) => r.id === record.id);
+    assert.ok(restored, 'the record comes back');
+    assert.equal(restored.status, 'draft');
+    assert.equal(restored.stepCompletions.length, 1);
+    assert.equal(restored.observations[0].text, record.observations[0].text);
+    assert.equal(restored.attachments[0].id, photo.id);
+    const download = await fetch(restored.attachments[0].url);
+    assert.equal(download.status, 200, 'its photo link works');
+
+    const theirs = await api('/records/mine', { token: tokens[STUDENT_2] });
+    assert.equal(theirs.status, 200);
+    assert.equal(theirs.body.some((r: { id: string }) => r.id === record.id), false, 'not visible to another student');
+    assert.equal((await api('/records/mine')).status, 401);
+  });
+});
+
 describe('lecturer view', () => {
   test('students get 403; lecturers get records with emails and working photo URLs', async () => {
     const record = makeRecord();
