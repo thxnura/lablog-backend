@@ -1,14 +1,14 @@
 {
   "name": "lablog-backend",
   "version": "0.1.0",
-  "description": "LabLog backend \u2014 Express + TypeScript + Supabase (SE5070 Enterprise Mobility)",
+  "description": "REST API for LabLog, an offline-first lab book app — Express + TypeScript + Supabase (SE5070 Enterprise Mobility)",
+  "author": "Thanura Manjitha Peiris (MS26928210)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .ts",
     "local:setup": "tsx scripts/setup-local.ts",
     "test:e2e": "node --import tsx --test --test-reporter=spec test/e2e.test.ts"
   },
