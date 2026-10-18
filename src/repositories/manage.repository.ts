@@ -70,6 +70,70 @@ export const manageRepository = {
     return experimentId;
   },
 
+  /**
+   * Edits an experiment in place. Steps keep their ids (and so the students'
+   * completions and photos on them); new steps get ids; a step left out is
+   * deleted, unless a student has completed it, which would delete their work.
+   */
+  async updateExperiment(experimentId: string, experiment: CreateExperiment) {
+    const { data: existing, error } = await supabaseAdmin
+      .from('steps')
+      .select('id, order')
+      .eq('experiment_id', experimentId);
+    if (error) throw new HttpError(500, error.message);
+    const existingIds = new Set((existing ?? []).map((s) => s.id as string));
+    for (const step of experiment.steps) {
+      if (step.id && !existingIds.has(step.id)) throw new HttpError(422, 'A step id belongs to another experiment');
+    }
+    const kept = new Set(experiment.steps.flatMap((s) => (s.id ? [s.id] : [])));
+    const removed = [...existingIds].filter((id) => !kept.has(id));
+    if (removed.length) {
+      const { data: work, error: workError } = await supabaseAdmin
+        .from('step_completions')
+        .select('step_id')
+        .in('step_id', removed)
+        .limit(1);
+      if (workError) throw new HttpError(500, workError.message);
+      if (work?.length) {
+        const order = existing?.find((s) => s.id === work[0].step_id)?.order;
+        throw new HttpError(409, `Step ${order} has students' work on it, so it can't be removed`);
+      }
+    }
+
+    const stepIds = experiment.steps.map((s) => s.id ?? randomUUID());
+    const { error: updateError } = await supabaseAdmin
+      .from('experiments')
+      .update({ title: experiment.title, description: experiment.description || null })
+      .eq('id', experimentId);
+    if (updateError) throw new HttpError(500, updateError.message);
+
+    // Upsert touches only these columns, so a step's guide stays as it was.
+    const { error: stepsError } = await supabaseAdmin.from('steps').upsert(
+      experiment.steps.map((step, index) => ({
+        id: stepIds[index],
+        experiment_id: experimentId,
+        order: index + 1,
+        title: step.title,
+        instruction: step.instruction || null,
+        requires_photo: step.requiresPhoto,
+        min_duration_seconds: step.minDurationSeconds ?? null,
+        prerequisite_step_ids: step.prerequisites.map((p) => stepIds[p - 1]),
+      })),
+      { onConflict: 'id' },
+    );
+    if (stepsError) throw new HttpError(500, stepsError.message);
+    if (removed.length) {
+      const { error: deleteError } = await supabaseAdmin.from('steps').delete().in('id', removed);
+      if (deleteError) throw new HttpError(500, deleteError.message);
+    }
+  },
+
+  async experimentExists(experimentId: string) {
+    const { data, error } = await supabaseAdmin.from('experiments').select('id').eq('id', experimentId).maybeSingle();
+    if (error) throw new HttpError(500, error.message);
+    return !!data;
+  },
+
   /** Replaces a lab's enrolment with exactly these students. */
   async setEnrolment(labId: string, studentIds: string[]) {
     const { error } = await supabaseAdmin.from('lab_enrolments').delete().eq('lab_id', labId);

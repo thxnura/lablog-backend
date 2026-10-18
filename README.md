@@ -58,6 +58,7 @@ role can set.
 | GET | `/api/manage/labs` | lecturer | Every lab with its experiment count and enrolled students |
 | POST | `/api/manage/labs` | lecturer | Create a lab (`code`, `name`); 409 if the code exists |
 | POST | `/api/manage/labs/:labId/experiments` | lecturer | Create an experiment with its steps (photo, wait time, prerequisites by step number); the step graph is checked with Kahn's algorithm, 422 on a loop |
+| PUT | `/api/manage/experiments/:experimentId` | lecturer | Edit an experiment and its steps in place: steps keep their ids, new steps are added, and a step with students' work can't be removed (409) |
 | PUT | `/api/manage/labs/:labId/students` | lecturer | Choose exactly which students can do a lab |
 | GET | `/api/manage/students` | lecturer | Student accounts to choose from |
 
@@ -106,7 +107,7 @@ set the new address in the app under Sync → Server.
 npm run test:e2e
 ```
 
-19 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
+20 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
 Storage), the same way the app does:
 - auth: 401 without a token;
 - the catalog and step guides;
@@ -117,7 +118,7 @@ Storage), the same way the app does:
 - a retake replacing the stored photo;
 - ids in the app's upper-case form keeping their photo;
 - a student getting their own records back (and nobody else's);
-- lecturers creating labs and experiments, enrolment deciding who sees them, and step graphs with a loop refused;
+- lecturers creating and editing labs and experiments, enrolment deciding who sees them, step graphs with a loop refused, and a step with students' work kept;
 - draft tombstones: idempotent, drafts only, owner only;
 - lecturer access: 403 for students, 200 for lecturers, with working photo URLs.
 

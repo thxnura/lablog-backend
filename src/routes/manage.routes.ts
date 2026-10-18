@@ -11,5 +11,6 @@ manageRoutes.use('/manage', requireAuth, requireRole('lecturer'));
 manageRoutes.get('/manage/labs', manageController.listLabs);
 manageRoutes.post('/manage/labs', validateBody(createLabSchema), manageController.createLab);
 manageRoutes.post('/manage/labs/:labId/experiments', validateBody(createExperimentSchema), manageController.createExperiment);
+manageRoutes.put('/manage/experiments/:experimentId', validateBody(createExperimentSchema), manageController.updateExperiment);
 manageRoutes.put('/manage/labs/:labId/students', validateBody(enrolmentSchema), manageController.setEnrolment);
 manageRoutes.get('/manage/students', manageController.listStudents);

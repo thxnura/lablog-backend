@@ -9,10 +9,12 @@ export const createLabSchema = z.object({
 });
 
 /**
- * One step of a new experiment. Steps are numbered by their position (1…n);
+ * One step of an experiment. Steps are numbered by their position (1…n);
  * `prerequisites` lists the numbers of the steps that must be done first.
+ * When editing, an existing step keeps its `id`, so students' work on it stays.
  */
 export const newStepSchema = z.object({
+  id: uuid().optional(),
   title: z.string().trim().min(1).max(120),
   instruction: z.string().trim().max(1000).optional(),
   requiresPhoto: z.boolean().default(false),

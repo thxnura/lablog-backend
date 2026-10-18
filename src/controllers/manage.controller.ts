@@ -28,6 +28,14 @@ export const manageController = {
     }
   },
 
+  async updateExperiment(req: AuthedRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await manageService.updateExperiment(req.user!, req.params.experimentId, req.body as CreateExperiment));
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async setEnrolment(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
       await manageService.setEnrolment(req.params.labId, (req.body as Enrolment).studentIds);

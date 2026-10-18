@@ -35,6 +35,14 @@ export const manageService = {
     return catalogService.getExperiment(lecturer, id);
   },
 
+  /** Edits an experiment and answers with it as the catalog now has it. */
+  async updateExperiment(lecturer: NonNullable<AuthedRequest['user']>, experimentId: string, experiment: CreateExperiment) {
+    if (!(await manageRepository.experimentExists(experimentId))) throw new HttpError(404, 'Experiment not found');
+    validateStepGraph(experiment.steps);
+    await manageRepository.updateExperiment(experimentId, experiment);
+    return catalogService.getExperiment(lecturer, experimentId);
+  },
+
   async setEnrolment(labId: string, studentIds: string[]) {
     if (!(await manageRepository.labExists(labId))) throw new HttpError(404, 'Lab not found');
     await manageRepository.setEnrolment(labId, [...new Set(studentIds)]);

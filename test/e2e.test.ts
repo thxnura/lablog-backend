@@ -380,6 +380,48 @@ describe('lecturers create labs (ADR-029)', () => {
     assert.deepEqual([row.isOpenToAll, row.experimentCount, row.studentIds], [false, 1, [student.id]]);
   });
 
+  test('editing an experiment keeps step ids, and a step with student work can\'t be removed', async () => {
+    const lab = await api('/manage/labs', {
+      method: 'POST', token: tokens[LECTURER], body: { code: `E${Date.now().toString().slice(-6)}`, name: 'Edits' },
+    });
+    createdLabs.push(lab.body.id);
+    await api(`/manage/labs/${lab.body.id}/students`, {
+      method: 'PUT', token: tokens[LECTURER],
+      body: { studentIds: [(await api('/manage/students', { token: tokens[LECTURER] })).body.find((s: { email: string }) => s.email === STUDENT).id] },
+    });
+    const created = await api(`/manage/labs/${lab.body.id}/experiments`, { method: 'POST', token: tokens[LECTURER], body: { title: 'Before', steps } });
+    const [one, two, three] = created.body.steps;
+
+    const edited = await api(`/manage/experiments/${created.body.id}`, {
+      method: 'PUT', token: tokens[LECTURER],
+      body: {
+        title: 'After',
+        steps: [
+          { id: one.id, title: 'Weigh the sample carefully' },
+          { id: two.id, title: two.title, minDurationSeconds: 60, prerequisites: [1] },
+          { id: three.id, title: three.title, requiresPhoto: true, prerequisites: [2] },
+          { title: 'Clean up', prerequisites: [3] },
+        ],
+      },
+    });
+    assert.equal(edited.status, 200);
+    assert.equal(edited.body.title, 'After');
+    assert.deepEqual(edited.body.steps.slice(0, 3).map((s: { id: string }) => s.id), [one.id, two.id, three.id], 'ids kept');
+    assert.equal(edited.body.steps[0].title, 'Weigh the sample carefully');
+    assert.equal(edited.body.steps[1].minDurationSeconds, 60);
+    assert.deepEqual(edited.body.steps[3].prerequisiteStepIds, [three.id]);
+
+    // A student completes step 2; removing it now would delete their work.
+    const record = makeRecord({ experimentId: created.body.id, status: 'draft', submittedAt: null,
+      stepCompletions: [{ id: randomUUID(), stepId: two.id, completedAt: now() }] });
+    assert.equal((await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [record] } })).body.results[0].status, 'synced');
+    const removing = await api(`/manage/experiments/${created.body.id}`, {
+      method: 'PUT', token: tokens[LECTURER], body: { title: 'After', steps: [{ id: one.id, title: 'Only one' }] },
+    });
+    assert.equal(removing.status, 409);
+    assert.match(removing.body.error, /Step 2 has students' work/);
+  });
+
   test('a step graph with a loop or a missing step is refused', async () => {
     const lab = await api('/manage/labs', {
       method: 'POST', token: tokens[LECTURER], body: { code: `L${Date.now().toString().slice(-6)}`, name: 'Loops' },
