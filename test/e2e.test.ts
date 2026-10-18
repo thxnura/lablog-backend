@@ -348,6 +348,7 @@ describe('lecturers create labs (ADR-029)', () => {
       method: 'POST', token: tokens[LECTURER], body: { title: 'Heating test', steps },
     });
     assert.equal(experiment.status, 201);
+    assert.equal(experiment.body.steps.length, 3, 'the new experiment comes back whole, so the app needs no refetch');
 
     const before = await api('/labs', { token: tokens[STUDENT] });
     assert.equal(before.body.some((l: { id: string }) => l.id === lab.body.id), false, 'not enrolled yet');

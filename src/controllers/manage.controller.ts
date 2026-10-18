@@ -22,7 +22,7 @@ export const manageController = {
 
   async createExperiment(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
-      res.status(201).json(await manageService.createExperiment(req.params.labId, req.body as CreateExperiment));
+      res.status(201).json(await manageService.createExperiment(req.user!, req.params.labId, req.body as CreateExperiment));
     } catch (err) {
       next(err);
     }
