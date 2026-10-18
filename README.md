@@ -94,7 +94,7 @@ set the new address in the app under Sync → Server.
 npm run test:e2e
 ```
 
-14 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
+15 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
 Storage), the same way the app does:
 - auth: 401 without a token;
 - the catalog and step guides;
@@ -103,6 +103,7 @@ Storage), the same way the app does:
 - signed upload with a retry;
 - storage URLs following the caller's host;
 - a retake replacing the stored photo;
+- ids in the app's upper-case form keeping their photo;
 - draft tombstones: idempotent, drafts only, owner only;
 - lecturer access: 403 for students, 200 for lecturers, with working photo URLs.
 

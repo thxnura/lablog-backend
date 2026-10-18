@@ -247,6 +247,19 @@ describe('editing drafts', () => {
     assert.equal(await objectExists(retake.storagePath), true);
   });
 
+  test('upper-case ids, as the iOS app sends them, keep their photo', async () => {
+    // Swift's JSONEncoder writes UUIDs in upper case; Postgres returns them in lower case.
+    const record = makeRecord({ status: 'draft', submittedAt: null });
+    const photo = await uploadPhoto(record.id);
+    const fromApp = { ...record, id: record.id.toUpperCase(), attachments: [{ ...photo, id: photo.id.toUpperCase() }] };
+    const res = await api('/sync', { method: 'POST', token: tokens[STUDENT], body: { records: [fromApp] } });
+    assert.equal(res.body.results[0].status, 'synced');
+
+    const rows = await supabaseAdmin.from('attachments').select('id').eq('record_id', record.id);
+    assert.deepEqual(rows.data?.map((r) => r.id), [photo.id]);
+    assert.equal(await objectExists(photo.storagePath), true, 'the photo is still in Storage');
+  });
+
   test('a discarded draft is deleted with its photos; retrying the tombstone is fine', async () => {
     const record = makeRecord({ status: 'draft', submittedAt: null });
     const photo = await uploadPhoto(record.id);
