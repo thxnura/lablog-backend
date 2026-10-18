@@ -27,6 +27,7 @@ let base = '';
 const tokens: Record<string, string> = {};
 const createdRecords: string[] = [];
 const createdObjects: string[] = [];
+const createdLabs: string[] = [];
 
 async function signIn(email: string, password: string): Promise<string> {
   const res = await fetch(`${env.supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -83,6 +84,7 @@ before(async () => {
 after(async () => {
   if (createdRecords.length) await supabaseAdmin.from('lab_records').delete().in('id', createdRecords);
   if (createdObjects.length) await supabaseAdmin.storage.from(env.storageBucket).remove(createdObjects);
+  if (createdLabs.length) await supabaseAdmin.from('labs').delete().in('id', createdLabs);
   server?.close();
 });
 
@@ -318,6 +320,80 @@ describe('restoring a phone', () => {
     assert.equal(theirs.status, 200);
     assert.equal(theirs.body.some((r: { id: string }) => r.id === record.id), false, 'not visible to another student');
     assert.equal((await api('/records/mine')).status, 401);
+  });
+});
+
+describe('lecturers create labs (ADR-029)', () => {
+  const steps = [
+    { title: 'Weigh the sample', requiresPhoto: false },
+    { title: 'Heat for two minutes', minDurationSeconds: 120, prerequisites: [1] },
+    { title: 'Photograph the result', requiresPhoto: true, prerequisites: [1, 2] },
+  ];
+
+  test('students can\'t manage labs', async () => {
+    assert.equal((await api('/manage/labs', { token: tokens[STUDENT] })).status, 403);
+    const res = await api('/manage/labs', { method: 'POST', token: tokens[STUDENT], body: { code: 'X1', name: 'Nope' } });
+    assert.equal(res.status, 403);
+  });
+
+  test('a new lab is visible only to the students enrolled in it', async () => {
+    const code = `T${Date.now().toString().slice(-6)}`;
+    const lab = await api('/manage/labs', { method: 'POST', token: tokens[LECTURER], body: { code, name: 'Test Lab' } });
+    assert.equal(lab.status, 201);
+    createdLabs.push(lab.body.id);
+    const duplicate = await api('/manage/labs', { method: 'POST', token: tokens[LECTURER], body: { code, name: 'Again' } });
+    assert.equal(duplicate.status, 409);
+
+    const experiment = await api(`/manage/labs/${lab.body.id}/experiments`, {
+      method: 'POST', token: tokens[LECTURER], body: { title: 'Heating test', steps },
+    });
+    assert.equal(experiment.status, 201);
+
+    const before = await api('/labs', { token: tokens[STUDENT] });
+    assert.equal(before.body.some((l: { id: string }) => l.id === lab.body.id), false, 'not enrolled yet');
+    assert.equal((await api(`/experiments/${experiment.body.id}`, { token: tokens[STUDENT] })).status, 403);
+
+    const students = await api('/manage/students', { token: tokens[LECTURER] });
+    const student = students.body.find((s: { email: string }) => s.email === STUDENT);
+    assert.ok(student, 'the student is listed');
+    assert.equal(students.body.some((s: { email: string }) => s.email === LECTURER), false, 'lecturers are not');
+    const enrol = await api(`/manage/labs/${lab.body.id}/students`, {
+      method: 'PUT', token: tokens[LECTURER], body: { studentIds: [student.id] },
+    });
+    assert.equal(enrol.status, 204);
+
+    const after = await api('/labs', { token: tokens[STUDENT] });
+    assert.ok(after.body.some((l: { id: string }) => l.id === lab.body.id), 'enrolled: the lab appears');
+    assert.equal((await api('/labs', { token: tokens[STUDENT_2] })).body.some((l: { id: string }) => l.id === lab.body.id), false);
+
+    const detail = await api(`/experiments/${experiment.body.id}`, { token: tokens[STUDENT] });
+    assert.deepEqual(detail.body.steps.map((s: { order: number }) => s.order), [1, 2, 3]);
+    const [first, second, third] = detail.body.steps;
+    assert.equal(second.minDurationSeconds, 120);
+    assert.deepEqual(second.prerequisiteStepIds, [first.id]);
+    assert.deepEqual(third.prerequisiteStepIds, [first.id, second.id]);
+    assert.equal(third.requiresPhoto, true);
+
+    const managed = await api('/manage/labs', { token: tokens[LECTURER] });
+    const row = managed.body.find((l: { id: string }) => l.id === lab.body.id);
+    assert.deepEqual([row.isOpenToAll, row.experimentCount, row.studentIds], [false, 1, [student.id]]);
+  });
+
+  test('a step graph with a loop or a missing step is refused', async () => {
+    const lab = await api('/manage/labs', {
+      method: 'POST', token: tokens[LECTURER], body: { code: `L${Date.now().toString().slice(-6)}`, name: 'Loops' },
+    });
+    createdLabs.push(lab.body.id);
+    const loop = await api(`/manage/labs/${lab.body.id}/experiments`, {
+      method: 'POST', token: tokens[LECTURER],
+      body: { title: 'Loop', steps: [{ title: 'A', prerequisites: [2] }, { title: 'B', prerequisites: [1] }] },
+    });
+    assert.equal(loop.status, 422);
+    assert.match(loop.body.error, /loop/);
+    const missing = await api(`/manage/labs/${lab.body.id}/experiments`, {
+      method: 'POST', token: tokens[LECTURER], body: { title: 'Missing', steps: [{ title: 'A', prerequisites: [5] }] },
+    });
+    assert.equal(missing.status, 422);
   });
 });
 

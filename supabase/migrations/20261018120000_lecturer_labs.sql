@@ -1,0 +1,1 @@
+../../db/migrations/004_lecturer_labs.sql

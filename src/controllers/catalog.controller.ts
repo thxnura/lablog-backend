@@ -1,26 +1,27 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Response } from 'express';
+import type { AuthedRequest } from '../middleware/auth.js';
 import { catalogService } from '../services/catalog.service.js';
 
 export const catalogController = {
-  async listLabs(_req: Request, res: Response, next: NextFunction) {
+  async listLabs(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
-      res.json(await catalogService.listLabs());
+      res.json(await catalogService.listLabs(req.user!));
     } catch (err) {
       next(err);
     }
   },
 
-  async listExperiments(req: Request, res: Response, next: NextFunction) {
+  async listExperiments(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
-      res.json(await catalogService.listExperiments(req.params.labId));
+      res.json(await catalogService.listExperiments(req.user!, req.params.labId));
     } catch (err) {
       next(err);
     }
   },
 
-  async getExperiment(req: Request, res: Response, next: NextFunction) {
+  async getExperiment(req: AuthedRequest, res: Response, next: NextFunction) {
     try {
-      res.json(await catalogService.getExperiment(req.params.id));
+      res.json(await catalogService.getExperiment(req.user!, req.params.id));
     } catch (err) {
       next(err);
     }

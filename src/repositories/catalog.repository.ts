@@ -6,10 +6,17 @@ export const catalogRepository = {
   async listLabs() {
     const { data, error } = await supabaseAdmin
       .from('labs')
-      .select('id, name, code')
+      .select('id, name, code, created_by')
       .order('name');
     if (error) throw new HttpError(500, error.message);
     return data;
+  },
+
+  /** Lab ids a student is enrolled in (ADR-029). */
+  async enrolledLabIds(studentId: string): Promise<Set<string>> {
+    const { data, error } = await supabaseAdmin.from('lab_enrolments').select('lab_id').eq('student_id', studentId);
+    if (error) throw new HttpError(500, error.message);
+    return new Set((data ?? []).map((r) => r.lab_id as string));
   },
 
   async listExperiments(labId: string) {
