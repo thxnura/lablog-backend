@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "REST API for LabLog, an offline-first lab book app — Express + TypeScript + Supabase (SE5070 Enterprise Mobility)",
   "author": "Thanura Manjitha Peiris (MS26928210)",
+  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

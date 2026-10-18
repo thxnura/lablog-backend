@@ -82,11 +82,17 @@ app are rewritten to whatever host the app called (`src/services/client-url.ts`)
 local or private-network Supabase. So when the Mac's IP changes, nothing on the Mac needs re-running:
 set the new address in the app under Sync → Server.
 
-### Hosted Supabase instead
-1. Create a project and run `db/schema.sql`, then `db/seed.sql`, in the SQL editor.
-2. Create a private Storage bucket named `evidence`.
-3. `cp .env.example .env` and fill in the URL and keys (Settings → API).
-4. `npm install && npm run dev`.
+### Hosted: Supabase + Vercel
+1. **Database.** `supabase link --project-ref <ref>`, then `supabase db push --include-seed`. This applies
+   `db/schema.sql`, the seed, and `db/migrations/003_lock_down_tables.sql`, which turns on row-level
+   security for every table (the anon key ships in the app; the API uses the service role) and creates
+   the private `evidence` bucket.
+2. **Accounts.** Create users with private passwords: the demo passwords above are for the local stack
+   only, and this README is public. A lecturer needs `app_metadata.role = "lecturer"`.
+3. **API.** Import the repository in Vercel. Express is detected with zero configuration (the default
+   export of `src/app.ts`). Add the environment variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_STORAGE_BUCKET=evidence`; the API is then at
+   `https://<project>.vercel.app/api/health`.
 
 ## Tests
 

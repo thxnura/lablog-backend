@@ -16,3 +16,7 @@ export function createApp() {
 
   return app;
 }
+
+// Vercel deploys an Express app from the default export of src/app.ts (zero
+// configuration). Locally, src/server.ts calls createApp() and listens instead.
+export default createApp();
