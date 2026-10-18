@@ -1,8 +1,11 @@
 /**
- * End-to-end tests against a REAL local Supabase stack (Postgres + Auth +
- * Storage), driving the Express app over HTTP exactly as the iOS app does.
+ * End-to-end tests against a REAL Supabase project (Postgres + Auth +
+ * Storage), driving the API over HTTP exactly as the iOS app does.
  *
- *   supabase start && npm run local:setup && npm run test:e2e
+ *   npm run test:hosted   the DEPLOYED API on Vercel and the hosted project,
+ *                         with test-only accounts from .env.hosted (ADR-030)
+ *   npm run test:e2e      this API in-process against a local Supabase stack
+ *                         (supabase start && npm run local:setup first)
  */
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,14 +16,18 @@ import type { AddressInfo } from 'node:net';
 import { createApp } from '../src/app.js';
 import { env } from '../src/config/env.js';
 import { supabaseAdmin } from '../src/config/supabase.js';
-import { DEMO_USERS, ensureDemoUsers } from '../scripts/demo-users.js';
+import { DEMO_USERS, ensureUsers, hostedTestUsers } from '../scripts/demo-users.js';
 
 const PENDULUM = '22222222-2222-2222-2222-222222222224';
 const STEP_1 = '33333333-0000-0000-0002-000000000001';
 const STEP_2 = '33333333-0000-0000-0002-000000000002';
-const STUDENT = DEMO_USERS[0].email;
-const STUDENT_2 = DEMO_USERS[1].email;
-const LECTURER = DEMO_USERS[2].email;
+// The deployed API when LABLOG_API_URL is set (npm run test:hosted), else this app in-process.
+const HOSTED_API = process.env.LABLOG_API_URL?.replace(/\/+$/, '');
+const USERS = HOSTED_API ? hostedTestUsers() : DEMO_USERS;
+if (!USERS) throw new Error('LABLOG_API_URL is set but the LABLOG_TEST_* accounts are missing (see .env.hosted)');
+const STUDENT = USERS[0].email;
+const STUDENT_2 = USERS[1].email;
+const LECTURER = USERS[2].email;
 
 let server: Server;
 let base = '';
@@ -74,8 +81,12 @@ function makeRecord(overrides: Record<string, unknown> = {}) {
 }
 
 before(async () => {
-  await ensureDemoUsers(env.supabaseUrl, env.supabaseServiceRoleKey);
-  for (const user of DEMO_USERS) tokens[user.email] = await signIn(user.email, user.password);
+  await ensureUsers(env.supabaseUrl, env.supabaseServiceRoleKey, USERS);
+  for (const user of USERS) tokens[user.email] = await signIn(user.email, user.password);
+  if (HOSTED_API) {
+    base = HOSTED_API;
+    return;
+  }
   server = createApp().listen(0);
   await once(server, 'listening');
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -196,7 +207,8 @@ describe('photo evidence', () => {
 });
 
 describe('changing networks', () => {
-  test('signed URLs point at the host the app called, not the .env address', async () => {
+  // A LAN-address concern of the local stack; a hosted project has one fixed address.
+  test('signed URLs point at the host the app called, not the .env address', { skip: HOSTED_API && 'local stack only' }, async () => {
     const recordId = randomUUID();
     createdRecords.push(recordId);
     // Same API, reached as "localhost" instead of 127.0.0.1 (like a phone using a new address).

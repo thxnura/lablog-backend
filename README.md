@@ -65,6 +65,7 @@ role can set.
 ## Running it locally
 
 **Requirements:** Node 22, Docker Desktop, and the [Supabase CLI](https://supabase.com/docs/guides/cli).
+The local stack is optional: the deployed API (below) needs neither Docker nor a running Mac.
 
 ```sh
 npm install
@@ -104,11 +105,19 @@ set the new address in the app under Sync → Server.
 ## Tests
 
 ```sh
-npm run test:e2e
+npm run test:hosted   # against the DEPLOYED API on Vercel and the hosted project (no Docker)
+npm run test:e2e      # against this code in-process and the local Supabase stack (Docker)
 ```
 
-20 end-to-end tests drive the Express app over HTTP against the real local stack (Postgres, Auth,
-Storage), the same way the app does:
+The same 20 end-to-end tests drive the API over HTTP against a real Supabase project (Postgres,
+Auth, Storage), the same way the app does. `test:hosted` runs them against the deployed API (ADR-030);
+it skips the one test about LAN addresses, which only applies to the local stack. It needs a
+git-ignored `.env.hosted` with the hosted URLs and keys, `LABLOG_API_URL`, and three test-only
+accounts (`LABLOG_TEST_STUDENT`, `LABLOG_TEST_STUDENT2`, `LABLOG_TEST_LECTURER`, each with a
+`_PASSWORD`), kept apart from the demo accounts. `npm run hosted:users` creates or resets those
+accounts, and `npm run hosted:cleanup` deletes everything they created (records, photo files and the
+test lecturer's labs); the iOS repo's `scripts/test-hosted.sh` runs both around its UI tests. The tests
+cover:
 - auth: 401 without a token;
 - the catalog and step guides;
 - idempotent sync and 422 validation;
@@ -131,6 +140,8 @@ Storage), the same way the app does:
 | `npm run typecheck` | Type-check only |
 | `npm run local:setup` | Local `.env`, demo users, and the iOS config |
 | `npm run test:e2e` | End-to-end tests against the local stack |
+| `npm run test:hosted` | The same tests against the deployed API (needs `.env.hosted`) |
+| `npm run hosted:users` / `hosted:cleanup` | Create the hosted test-only accounts / delete what they created |
 
 Design decisions and the failure log for the whole project live in the iOS repo's `docs/` folder
-(ADR-002, 004, 005, 014, 018, 019, 021, 022 and 023 concern this service).
+(ADR-002, 004, 005, 014, 018, 019, 021, 022, 023, 025, 028, 029 and 030 concern this service).

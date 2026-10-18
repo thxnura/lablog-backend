@@ -11,7 +11,10 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "local:setup": "tsx scripts/setup-local.ts",
-    "test:e2e": "node --import tsx --test --test-reporter=spec test/e2e.test.ts"
+    "test:e2e": "node --import tsx --test --test-reporter=spec test/e2e.test.ts",
+    "test:hosted": "node --env-file=.env.hosted --import tsx --test --test-reporter=spec test/e2e.test.ts",
+    "hosted:users": "node --env-file=.env.hosted --import tsx scripts/hosted-tests.ts users",
+    "hosted:cleanup": "node --env-file=.env.hosted --import tsx scripts/hosted-tests.ts cleanup"
   },
   "keywords": [
     "express",
